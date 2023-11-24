@@ -1,0 +1,181 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+//using static UnityEditor.PlayerSettings;
+
+public class ControladorLugares : MonoBehaviour
+{
+    [System.Serializable]
+    public class Lugar
+    {
+        public string nombre;
+        public float latitud;
+        public float longitud;
+        public string descripcion;
+        public List<GameObject> modelo3D; // Referencia al modelo 3D asociado a este lugar
+    }
+
+    public List<Lugar> lugares = new List<Lugar>();
+    public float radioDeAccion;
+    public GameObject modelo1;
+    public GameObject modelo2;
+    public GameObject modelo3;
+    public GameObject modelo4;
+    public GameObject modelo5;
+    public GameObject modelo6;
+    public GameObject modelo7;
+    private float actualLat;
+    private float actualLong;
+    private int modeloActual = 0;
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        // Intentar iniciar la ubicación
+        if (Input.location.isEnabledByUser)
+        {
+            Input.location.Start();
+        }
+        else
+        {
+            Debug.LogError("El usuario ha desactivado la ubicación. Asegúrate de habilitarla para utilizar la funcionalidad de ubicación.");
+        }
+        // lista de lugares con la información de los lugares a mostrar.
+        lugares.Add(new Lugar
+        {
+            nombre = "SIERRA NEVADA",
+            latitud = 11.225151f,
+            longitud = -74.186972f,
+            descripcion = "Este es el Edificio A",
+            modelo3D = new List<GameObject> { modelo1, modelo2, modelo3 }
+        });
+
+        lugares.Add(new Lugar
+        {
+            nombre = "CIENAGA GRANDE",
+            latitud = 11.224821f,
+            longitud = -74.186306f,
+            descripcion = "Este es el Edificio B",
+            modelo3D = new List<GameObject> { modelo4, modelo5 }
+        });
+
+        lugares.Add(new Lugar
+        {
+            nombre = "MAR CARIBE",
+            latitud = 11.224368f,
+            longitud = -74.185683f,
+            descripcion = "Este es el Edificio c",
+            modelo3D = new List<GameObject> { modelo6, modelo7 }
+        });
+        InvokeRepeating("ActualizarUbicacionYInformacion", 0.0f, 5.0f);
+    }
+
+    // Update is called once per frame
+    void ActualizarUbicacionYInformacion()
+    {
+
+        if (Input.location.status == LocationServiceStatus.Running)
+        {
+            actualLat = Input.location.lastData.latitude;
+            actualLong = Input.location.lastData.longitude;
+        }
+        else
+        {
+            Debug.LogWarning("La ubicación no está disponible actualmente. " +
+                "Asegúrate de que el servicio de ubicación esté en ejecución.");
+        }
+
+        foreach (Lugar lugar in lugares)
+        {
+            float distancia = FormulaHaversine(lugar.latitud, lugar.longitud, actualLat, actualLong);
+
+            if (distancia < radioDeAccion)
+            {
+                Debug.Log("Estás cerca de " + lugar.nombre + ". Descripción: " + lugar.descripcion);
+                foreach (GameObject modelo in lugar.modelo3D)
+                {
+                    if (modelo != null)
+                    {
+                        modelo.SetActive(false);
+                    }
+                }
+                if (lugar.modelo3D[modeloActual] != null)
+                {
+                    lugar.modelo3D[modeloActual].SetActive(true);
+                }
+            }
+            else
+            {
+                Debug.Log("No estás cerca de " + lugar.nombre);
+                foreach (GameObject modelo in lugar.modelo3D)
+                {
+                    if (modelo != null)
+                    {
+                        modelo.SetActive(false);
+                    }
+                }
+            }
+        }
+    }
+    void Update()
+    {
+        if (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Moved)
+        {
+            Vector2 deslizamiento = Input.GetTouch(0).deltaPosition;
+
+            if (Mathf.Abs(deslizamiento.x) > Mathf.Abs(deslizamiento.y))
+            {
+                if (deslizamiento.x > 0)
+                {
+                    CambiarModelo();
+                }
+            }
+        }
+    }
+
+    void CambiarModelo()
+    {
+        foreach (Lugar lugar in lugares)
+        {
+            if (lugar.modelo3D[modeloActual] != null)
+            {
+                lugar.modelo3D[modeloActual].SetActive(false);
+            }
+        }
+
+        modeloActual = (modeloActual + 1) % lugares[0].modelo3D.Count;
+
+        foreach (Lugar lugar in lugares)
+        {
+            if (lugar.modelo3D[modeloActual] != null)
+            {
+                lugar.modelo3D[modeloActual].SetActive(true);
+            }
+        }
+    }
+
+
+    float FormulaHaversine(float lat1, float long1, float lat2, float long2)
+    {
+        float earthRad = 6371000;
+        try
+        {
+            float lRad1 = lat1 * Mathf.Deg2Rad;
+            float lRad2 = lat2 * Mathf.Deg2Rad;
+            float dLat = (lat2 - lat1) * Mathf.Deg2Rad;
+            float dLong = (long2 - long1) * Mathf.Deg2Rad;
+            float a = Mathf.Sin(dLat / 2.0f) * Mathf.Sin(dLat / 2.0f) +
+                      Mathf.Cos(lRad1) * Mathf.Cos(lRad2) *
+                      Mathf.Sin(dLong / 2.0f) * Mathf.Sin(dLong / 2.0f);
+            float c = 2 * Mathf.Atan2(Mathf.Sqrt(a), Mathf.Sqrt(1 - a));
+            return earthRad * c;
+        }
+        catch (Exception e)
+        {
+            Debug.Log("Error al calcular la distancia: " + e.Message);
+            return 0;
+        }
+    }
+
+}
